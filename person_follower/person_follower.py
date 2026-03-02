@@ -1,7 +1,8 @@
+# person_follower.py
 # Copyright 2016 Open Source Robotics Foundation, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
+# You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
@@ -14,7 +15,6 @@
 
 import rclpy
 from rclpy.node import Node
-
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 
@@ -31,16 +31,29 @@ class PersonFollower(Node):
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, input_msg):
-        angle_min = input_msg.angle_min
-        angle_max = input_msg.angle_max
-        angle_increment = input_msg.angle_increment
         ranges = input_msg.ranges
-        #
-        # your code for computing vx, wz
-        #
-        vx = 0.
-        wz = 0.
-        #
+        angle_min = input_msg.angle_min
+        angle_increment = input_msg.angle_increment
+
+        # Filtrar valores inválidos
+        valid_ranges = [(i, r) for i, r in enumerate(ranges) if r > 0.0 and r < 10.0]  # LIDAR máximo 10 m
+
+        if not valid_ranges:
+            vx = 0.0
+            wz = 0.0
+        else:
+            # Encontrar el punto más cercano
+            min_index, min_range = min(valid_ranges, key=lambda x: x[1])
+            angle_to_person = angle_min + min_index * angle_increment
+
+            # Control proporcional simple
+            vx = 0.5 * (min_range - 1.0)   # Mantener ~1 metro de distancia
+            vx = max(0.0, min(vx, 0.5))    # Limitar velocidad lineal
+
+            wz = 2.0 * angle_to_person      # Girar hacia la persona
+            wz = max(-1.0, min(wz, 1.0))   # Limitar velocidad angular
+
+        # Publicar comando
         output_msg = Twist()
         output_msg.linear.x = vx
         output_msg.angular.z = wz
@@ -52,7 +65,6 @@ def main(args=None):
     rclpy.spin(person_follower)
     person_follower.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
