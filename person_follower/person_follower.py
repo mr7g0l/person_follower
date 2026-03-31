@@ -24,14 +24,14 @@ class PersonFollower(Node):
         # Suscripción a la cámara RGB
         self.image_sub = self.create_subscription(
             Image,
-            '/camera/image_raw',
+            '/TurtleBot3Burger/camera/image_color',
             self.image_callback,
             10)
 
         # Parámetros ajustables
         self.max_linear_speed = 0.5     # m/s
         self.max_angular_speed = 1.0    # rad/s
-        self.desired_distance = 1.0     # metros
+        self.desired_distance = 0.5     # metros
         self.max_detection_distance = 3.0
         self.min_detection_distance = 0.2
 
@@ -102,9 +102,11 @@ class PersonFollower(Node):
         if not ranges:
             return
 
-        # Si YOLO no detectó persona → detener el robot
+        # Si YOLO no detectó persona → girar en busca del peatón
         if self.yolo_person_angle_norm is None:
-            self.publisher_.publish(Twist())
+            twist = Twist()
+            twist.angular.z = self.last_angular_speed if hasattr(self, "last_angular_speed") else 0.4
+            self.publisher_.publish(twist)
             return
 
         angle_min = scan.angle_min
@@ -160,6 +162,7 @@ class PersonFollower(Node):
         if min_distance < self.desired_distance:
             linear_speed = -0.2
 
+        self.last_angular_speed = angular_speed
         twist = Twist()
         twist.linear.x  = linear_speed
         twist.angular.z = angular_speed
