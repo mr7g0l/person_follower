@@ -47,6 +47,13 @@ TurtleBot3Burger {
     }
     RobotisLds01 {
     }
+    Camera {
+      translation 0.064 0 0.094
+      name "camera"
+      fieldOfView 1.117
+      width 640
+      height 480
+    }
   ]
 }
 Floor {
