@@ -54,7 +54,87 @@ TurtleBot3Burger {
       width 640
       height 480
     }
+    RangeFinder {
+      translation 0.064 0 0.094
+      name "range_finder"
+      fieldOfView 1.117
+      width 640
+      height 480
+      maxRange 10.0
+    }
   ]
+}
+Solid {
+  translation 7.5 4.95 1.2
+  children [
+    Shape {
+      appearance Appearance {
+        texture ImageTexture {
+          url ["aruco_0.png"]
+          repeatS FALSE
+          repeatT FALSE
+        }
+      }
+      geometry Box {
+        size 0.3 0.01 0.3
+      }
+    }
+  ]
+  name "aruco_panel_0"
+}
+Solid {
+  translation 8.0 -4.95 1.2
+  children [
+    Shape {
+      appearance Appearance {
+        texture ImageTexture {
+          url ["aruco_1.png"]
+          repeatS FALSE
+          repeatT FALSE
+        }
+      }
+      geometry Box {
+        size 0.3 0.01 0.3
+      }
+    }
+  ]
+  name "aruco_panel_1"
+}
+Solid {
+  translation 9.95 2.0 1.2
+  children [
+    Shape {
+      appearance Appearance {
+        texture ImageTexture {
+          url ["aruco_2.png"]
+          repeatS FALSE
+          repeatT FALSE
+        }
+      }
+      geometry Box {
+        size 0.01 0.3 0.3
+      }
+    }
+  ]
+  name "aruco_panel_2"
+}
+Solid {
+  translation 9.95 -2.0 1.2
+  children [
+    Shape {
+      appearance Appearance {
+        texture ImageTexture {
+          url ["aruco_3.png"]
+          repeatS FALSE
+          repeatT FALSE
+        }
+      }
+      geometry Box {
+        size 0.01 0.3 0.3
+      }
+    }
+  ]
+  name "aruco_panel_3"
 }
 Floor {
   translation 7.5 0 0
@@ -168,4 +248,14 @@ Pedestrian {
   ]
   shirtColor 0.6 0.4 0.35
   pantsColor 0.18 0.18 0.23
+}
+Pedestrian {
+  translation 5.5 1 1.27
+  name "pedestrian(2)"
+  controllerArgs [
+    "--trajectory=5.5 1, 9.5 1, 9.5 -1, 5.5 -1",
+    "--speed=0.2"
+  ]
+  shirtColor 0.15 0.35 0.75
+  pantsColor 0.25 0.2 0.2
 }
