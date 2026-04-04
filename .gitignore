@@ -1,0 +1,17 @@
+# Webots session files
+webots/*.wbproj
+webots/.*.wbproj
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Build artifacts
+build/
+install/
+log/
+
+# ROS2 local setup
+*.bash
+*.sh
