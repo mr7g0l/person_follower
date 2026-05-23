@@ -131,7 +131,7 @@ instead of `--bag` to produce example figures without a rosbag.
 The experiment rosbags are too large for Git (`report/rosbags/` is excluded in
 `.gitignore`) and are shared via Google Drive:
 
-**https://drive.google.com/your-shared-folder-link**
+[Recorded rosbags - Google Drive](https://drive.google.com/drive/folders/1HjiBTtxrNCbCuHkJ0b46jUU2g8fwfBa-?usp=drive_link)
 
 Download a bag and use it with `ros2 bag play` or `plot_trajectories.py` as
 described above.

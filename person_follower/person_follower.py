@@ -622,4 +622,44 @@ class PersonFollower(Node):
                 self.locked_track_id   = None
                 self.target_histogram  = None
                 self.kalman.initialized = False
-             
+                self.kalman_mode_start  = None
+                twist.angular.z = 0.3 * self.last_angular_dir
+            else:
+                predicted = self.kalman.get_predicted(t_ahead=0.8)
+                if predicted:
+                    tx, ty = predicted
+                    dx, dy   = tx - self.robot_x, ty - self.robot_y
+                    distance = math.hypot(dx, dy)
+                    angle_to = math.atan2(dy, dx) - self.robot_yaw
+                    angle_to = math.atan2(math.sin(angle_to), math.cos(angle_to))
+                    if distance > 0.5 and speed_factor > 0:
+                        twist.linear.x  = min(
+                            self.max_linear_speed * speed_factor,
+                            0.3 * distance)
+                        twist.angular.z = max(-self.max_angular_speed,
+                                              min(self.max_angular_speed,
+                                                  0.8 * angle_to))
+                        self.get_logger().info(
+                            f"[KALMAN] ({tx:.1f},{ty:.1f}) "
+                            f"d={distance:.1f}m ang={math.degrees(angle_to):.0f}°")
+                    else:
+                        # Llegó al punto o bloqueado — girar buscando
+                        twist.angular.z = 0.3 * self.last_angular_dir
+
+        # ── MODO 3: girar buscando ─────────────────────────────────────
+        else:
+            twist.angular.z = 0.3 * self.last_angular_dir
+
+        self.cmd_pub.publish(twist)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = PersonFollower()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

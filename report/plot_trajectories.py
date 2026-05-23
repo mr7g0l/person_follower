@@ -212,7 +212,8 @@ def make_demo(robot, peds):
 
 # ------------------------- Distance vs. time -------------------------------
 def distance_series(robot, estimate):
-    """Robot-to-target distance resampled onto a common time grid."""
+    """Robot-to-target distance evaluated at each detection (estimate) sample.
+    The robot pose is dense, so it is interpolated at the estimate times."""
     if len(robot) < 2 or len(estimate) < 2:
         return None, None
     tr = np.array([p[0] for p in robot])
@@ -221,18 +222,29 @@ def distance_series(robot, estimate):
     te = np.array([p[0] for p in estimate])
     ex = np.array([p[1] for p in estimate])
     ey = np.array([p[2] for p in estimate])
-    t0, t1 = max(tr[0], te[0]), min(tr[-1], te[-1])
-    if t1 <= t0:
-        return None, None
-    grid = np.linspace(t0, t1, 400)
-    d = np.hypot(np.interp(grid, te, ex) - np.interp(grid, tr, rx),
-                 np.interp(grid, te, ey) - np.interp(grid, tr, ry))
-    return grid - grid[0], d
+    rxe = np.interp(te, tr, rx)
+    rye = np.interp(te, tr, ry)
+    d = np.hypot(ex - rxe, ey - rye)
+    return te - te[0], d
 
 
 # ------------------------- Plotting ----------------------------------------
 def _xy(samples):
     return ([s[1] for s in samples], [s[2] for s in samples])
+
+
+def _gapped(samples, gap=2.0):
+    """x, y lists with NaN inserted where the time gap exceeds `gap` seconds,
+    so matplotlib breaks the line instead of drawing across detection losses."""
+    xs, ys, prev = [], [], None
+    for (t, x, y) in samples:
+        if prev is not None and (t - prev) > gap:
+            xs.append(float('nan'))
+            ys.append(float('nan'))
+        xs.append(x)
+        ys.append(y)
+        prev = t
+    return xs, ys
 
 
 def plot_overview(data, peds, robot, out_path):
@@ -249,8 +261,8 @@ def plot_overview(data, peds, robot, out_path):
         ax.plot(xs[0], ys[0], 'o', color=color, ms=9, mec='k', zorder=5)
 
     if data.get('estimate'):
-        ex, ey = _xy(data['estimate'])
-        ax.plot(ex, ey, '-', color='#27ae60', lw=1.8,
+        ex, ey = _gapped(data['estimate'])
+        ax.plot(ex, ey, '-', color='#27ae60', lw=1.5,
                 label='Target - Kalman estimate')
     if data.get('robot'):
         rx, ry = _xy(data['robot'])
@@ -289,8 +301,8 @@ def plot_following(data, peds, out_path):
         ax.scatter(mx, my, s=10, color='#95a5a6', alpha=0.5,
                    label='Fused measurement (depth + LiDAR)')
     if data.get('estimate'):
-        ex, ey = _xy(data['estimate'])
-        ax.plot(ex, ey, '-', color='#27ae60', lw=2, label='Kalman estimate')
+        ex, ey = _gapped(data['estimate'])
+        ax.plot(ex, ey, '-', color='#27ae60', lw=1.8, label='Kalman estimate')
     if data.get('robot'):
         rx, ry = _xy(data['robot'])
         ax.plot(rx, ry, '-', color='#2c3e50', lw=2.4, label='Robot trajectory')
@@ -312,8 +324,16 @@ def plot_distance(data, out_path, desired=0.8):
     if t is None:
         print('  (skipped distance plot - not enough data)')
         return
+    tt, dd = [], []
+    for i in range(len(t)):
+        if i > 0 and (t[i] - t[i - 1]) > 2.0:
+            tt.append(float('nan'))
+            dd.append(float('nan'))
+        tt.append(t[i])
+        dd.append(d[i])
     fig, ax = plt.subplots(figsize=(9, 4))
-    ax.plot(t, d, '-', color='#2980b9', lw=1.8, label='Robot-to-target distance')
+    ax.plot(tt, dd, '-', color='#2980b9', lw=1.5,
+            label='Robot-to-target distance')
     ax.axhline(desired, color='#c0392b', ls='--', lw=1.5,
                label='Desired distance (%.2f m)' % desired)
     ax.set_xlabel('Time [s]')

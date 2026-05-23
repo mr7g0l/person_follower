@@ -690,69 +690,95 @@ python3 plot_trajectories.py --bag rosbags/exp_01
 \noindent The procedure to record the rosbag is described in
 Appendix~\ref{app:rosbags}.
 
-\textit{\textbf{Note.} The figures below were generated with the
-demonstration mode of the script (\texttt{-{}-demo}, synthetic data) so that
-this document compiles before the experiments are carried out. They must be
-regenerated from a real rosbag, and this note removed, before the report is
-submitted.}
-
 \subsection{Results}
+
+A continuous experiment of 10.3~minutes (618~s) was recorded with the robot
+configured to follow pedestrian~1. During the run the perception pipeline
+produced 384 valid target detections --- an average rate of only 0.62~Hz. The
+mean interval between detections was 1.6~s and the longest single loss of the
+target lasted 76~s. This low detection rate is the dominant factor in the
+results below; its cause is analysed in Section~\ref{sec:limitations}.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{traj_overview.png}
-  \caption{Global overview of an experiment run. The robot trajectory (dark
-           line) follows the ground-truth path of the target pedestrian (red
-           dashed), while a second pedestrian (orange dashed) moves
-           independently. The green line is the target position estimated by
-           the Kalman filter. The four ArUco panel positions are marked for
-           reference.}
+  \caption{Global overview of the recorded experiment. The robot trajectory
+           is shown in dark blue and the Kalman estimate of the target in
+           green; the green line is broken wherever the target was lost. The
+           ground-truth pedestrian paths are dashed and the four ArUco panel
+           positions are marked for reference.}
   \label{fig:traj_overview}
 \end{figure}
 
-Figure~\ref{fig:traj_overview} shows that the robot reproduces the shape of
-the target's path with a roughly constant offset: it remains behind the
-pedestrian at approximately the desired following distance and cuts the
-corners slightly, which is the expected behaviour of a controller that steers
-towards the \emph{current} bearing of the target.
+Figure~\ref{fig:traj_overview} shows that the robot stayed largely within the
+central region of the room instead of following pedestrian~1 around its full
+loop. Because the target was detected only intermittently, the robot spent a
+large fraction of the run in the search behaviour (Mode~3), turning in place
+to re-acquire the pedestrian. The Kalman estimate appears as a set of
+disconnected segments: each gap corresponds to an interval with no detection.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{traj_following.png}
-  \caption{Detail of the target tracking. The raw fused measurement
-           (depth\,+\,LiDAR, grey dots) is noisy, whereas the Kalman estimate
-           (green) is a smooth curve that stays close to the pedestrian
-           ground truth (red dashed). The robot trajectory is shown in dark
-           blue.}
+  \caption{Detail of the target tracking: the fused depth\,+\,LiDAR
+           measurements (grey dots), the Kalman estimate (green, broken at
+           detection losses) and the robot trajectory (dark blue), against the
+           ground-truth path of pedestrian~1 (red dashed).}
   \label{fig:traj_following}
 \end{figure}
 
-Figure~\ref{fig:traj_following} illustrates the role of the Kalman filter:
-the constant-velocity model attenuates most of the measurement noise produced
-by the depth/LiDAR fusion and provides a continuous estimate of the target
-position, including the short intervals between detections.
+Figure~\ref{fig:traj_following} shows that, whenever a detection is available,
+the fused measurement and the Kalman estimate fall close to the ground-truth
+pedestrian path: the perception pipeline is accurate. The limitation is not
+accuracy but \emph{update rate} --- the estimate is not refreshed often enough
+to keep the controller continuously informed.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{traj_distance.png}
-  \caption{Robot-to-target distance over time. After the initial approach the
-           distance settles around the desired value of 0.8~m (red
-           dashed line).}
+  \caption{Robot-to-target distance, evaluated at each detection. The line is
+           broken where the target was lost for more than 2~s. The desired
+           following distance of 0.8~m is the red dashed line.}
   \label{fig:traj_distance}
 \end{figure}
 
-Figure~\ref{fig:traj_distance} confirms the closed-loop behaviour of the
-control law: the robot quickly closes the initial gap and then keeps the
-following distance close to 0.8~m for the remainder of the run.
-The script additionally prints summary statistics --- the robot and target
-path lengths and the minimum, mean and maximum following distance --- which
-can be quoted here once the experiment has been recorded.
+Figure~\ref{fig:traj_distance} quantifies the following performance. The
+robot-to-target distance ranged from 0.56~m to 2.42~m, with a mean of 1.43~m
+and a median of 1.38~m --- well above the desired 0.8~m. Only 27\% of the
+detections fell within the 0.5--1.1~m band around the set-point, although the
+robot never came dangerously close to the pedestrian (no detection below
+0.4~m). The frequent breaks in the line are the detection losses already
+apparent in the previous figures.
+
+\subsection{Discussion and Limitations}
+\label{sec:limitations}
+
+The experiment was run on a laptop \emph{without a dedicated GPU}. Running
+YOLOv8 inference on the CPU is the bottleneck of the whole pipeline: it caps
+the perception update rate at roughly 0.6~Hz, so the robot is effectively
+blind for about 1.6~s between detections. At a walking speed of 0.15~m/s the
+pedestrian moves around 0.25~m in that interval, and after a longer loss it
+can leave the camera field of view entirely, forcing the robot into the
+search behaviour. This is the direct cause of the large distance error and
+the fragmented estimate reported above.
+
+This is a \emph{hardware} limitation rather than a flaw in the design. When a
+detection is available the fused estimate is accurate
+(Figure~\ref{fig:traj_following}), and the sensor-fusion, Kalman-filtering and
+control logic behave as intended. Continuous following at the designed 0.8~m
+gap requires a perception rate on the order of 10--30~Hz; on this pipeline
+that means GPU-accelerated inference. Lighter alternatives --- a smaller
+detector, a lower camera resolution, or running YOLO less often while relying
+more on the Kalman prediction between frames --- would also raise the
+effective update rate. Re-running the same experiment on a GPU-equipped
+machine is expected to bring the following distance close to the 0.8~m
+set-point.
 
 
 \section{Conclusion}
 
-The person-follower node integrates five complementary techniques to achieve
-robust tracking in a cluttered indoor simulation:
+The person-follower node integrates five complementary techniques for person tracking
+in a cluttered indoor simulation:
 
 \begin{enumerate}
   \item \textbf{YOLOv8 + BoTSORT} provide reliable short-term person
@@ -770,6 +796,11 @@ robust tracking in a cluttered indoor simulation:
 The modular callback architecture makes it straightforward to tune individual
 subsystems independently and to extend the pipeline with additional sensors or
 more sophisticated controllers.
+
+The trajectory analysis of Section~\ref{sec:trajectories} showed, however,
+that on CPU-only hardware the achievable perception rate --- not the control
+or fusion logic --- becomes the factor that limits following performance.
+GPU-accelerated inference is therefore recommended for real-time operation.
 
 % ========================================================================
 \newpage
@@ -1017,7 +1048,7 @@ sharing enabled, and the link is added here and to the project
 \texttt{README}:
 
 \begin{center}
-\fbox{\texttt{https://drive.google.com/your-shared-folder-link}}
+\url{https://drive.google.com/drive/folders/1HjiBTtxrNCbCuHkJ0b46jUU2g8fwfBa-?usp=drive_link}
 \end{center}
 
 \noindent To reproduce the analysis, download the bag from that link and run
