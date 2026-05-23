@@ -1,11 +1,15 @@
 """
 Person Follower — Fusión completa
   RGB + Depth + LiDAR + Odometría + Filtro de Kalman
+
+Publica además, para el análisis de trayectorias:
+  /person_follower/target_measurement  (PointStamped) — medición cruda fusionada
+  /person_follower/target_estimate     (PointStamped) — estimación del Kalman
 """
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, Image
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PointStamped
 from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge
 from ultralytics import YOLO
@@ -100,6 +104,13 @@ class PersonFollower(Node):
         self.cmd_pub   = self.create_publisher(Twist, '/cmd_vel', 10)
         self.debug_pub = self.create_publisher(Image, '/person_follower/debug_image', 10)
 
+        # Publicadores de trayectoria — se graban en el rosbag y se usan
+        # para los gráficos XY de la memoria (frame 'odom').
+        self.target_meas_pub = self.create_publisher(
+            PointStamped, '/person_follower/target_measurement', 10)
+        self.target_est_pub  = self.create_publisher(
+            PointStamped, '/person_follower/target_estimate', 10)
+
         # ── Suscripciones ─────────────────────────────────────────────
         self.create_subscription(
             Image, '/TurtleBot3Burger/camera/image_color',
@@ -176,6 +187,19 @@ class PersonFollower(Node):
         siny = 2.0 * (q.w * q.z + q.x * q.y)
         cosy = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         self.robot_yaw = math.atan2(siny, cosy)
+
+    # ──────────────────────────────────────────────────────────────────
+    # PUBLICACIÓN DE TRAYECTORIA (análisis posterior)
+    # ──────────────────────────────────────────────────────────────────
+    def _publish_point(self, publisher, x, y):
+        """Publica una posición 2D en el frame 'odom' para análisis de trayectorias."""
+        msg = PointStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'odom'
+        msg.point.x = float(x)
+        msg.point.y = float(y)
+        msg.point.z = 0.0
+        publisher.publish(msg)
 
     # ──────────────────────────────────────────────────────────────────
     # LIDAR — obstáculos + detección de piernas
@@ -478,6 +502,12 @@ class PersonFollower(Node):
             ty = self.robot_y + self.target_distance_m * math.sin(wa)
             self.kalman.update((tx, ty))
 
+            # Publicar trayectoria del objetivo para el análisis posterior
+            self._publish_point(self.target_meas_pub, tx, ty)
+            kpos = self.kalman.get_position()
+            if kpos is not None:
+                self._publish_point(self.target_est_pub, kpos[0], kpos[1])
+
         # Actualizar histograma (solo a buena distancia)
         if self.target_distance_m is not None and 1.0 < self.target_distance_m < 3.0:
             new_hist = self._compute_histogram(image, x1, y1, x2, y2)
@@ -592,44 +622,4 @@ class PersonFollower(Node):
                 self.locked_track_id   = None
                 self.target_histogram  = None
                 self.kalman.initialized = False
-                self.kalman_mode_start  = None
-                twist.angular.z = 0.3 * self.last_angular_dir
-            else:
-                predicted = self.kalman.get_predicted(t_ahead=0.8)
-                if predicted:
-                    tx, ty = predicted
-                    dx, dy   = tx - self.robot_x, ty - self.robot_y
-                    distance = math.hypot(dx, dy)
-                    angle_to = math.atan2(dy, dx) - self.robot_yaw
-                    angle_to = math.atan2(math.sin(angle_to), math.cos(angle_to))
-                    if distance > 0.5 and speed_factor > 0:
-                        twist.linear.x  = min(
-                            self.max_linear_speed * speed_factor,
-                            0.3 * distance)
-                        twist.angular.z = max(-self.max_angular_speed,
-                                              min(self.max_angular_speed,
-                                                  0.8 * angle_to))
-                        self.get_logger().info(
-                            f"[KALMAN] ({tx:.1f},{ty:.1f}) "
-                            f"d={distance:.1f}m ang={math.degrees(angle_to):.0f}°")
-                    else:
-                        # Llegó al punto o bloqueado — girar buscando
-                        twist.angular.z = 0.3 * self.last_angular_dir
-
-        # ── MODO 3: girar buscando ─────────────────────────────────────
-        else:
-            twist.angular.z = 0.3 * self.last_angular_dir
-
-        self.cmd_pub.publish(twist)
-
-
-def main(args=None):
-    rclpy.init(args=args)
-    node = PersonFollower()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == '__main__':
-    main()
+             

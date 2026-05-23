@@ -12,6 +12,14 @@ build/
 install/
 log/
 
-# ROS2 local setup
-*.bash
-*.sh
+# Recorded rosbags (too large for git - share them via Google Drive)
+report/rosbags/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk

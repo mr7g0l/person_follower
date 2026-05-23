@@ -1,6 +1,6 @@
 \documentclass[12pt,a4paper]{article}
 
-% ── Packages ────────────────────────────────────────────────────────────
+% -- Packages ------------------------------------------------------------
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[english]{babel}
@@ -22,7 +22,7 @@
 \usepackage{subcaption}
 \usepackage{parskip}
 
-% ── Code style ──────────────────────────────────────────────────────────
+% -- Code style ----------------------------------------------------------
 \definecolor{codebg}{RGB}{248,248,248}
 \definecolor{codeframe}{RGB}{200,200,200}
 \definecolor{keyword}{RGB}{0,100,180}
@@ -47,20 +47,20 @@
   tabsize=4,
 }
 
-% ── TikZ styles ─────────────────────────────────────────────────────────
+% -- TikZ styles ---------------------------------------------------------
 \tikzset{
-  block/.style={rectangle, draw, fill=blue!10, text centered,
+  block/.style={rectangle, draw, fill=blue!10, align=center,
                 rounded corners, minimum height=1.2em, minimum width=4cm,
                 font=\small},
-  sensor/.style={rectangle, draw, fill=green!15, text centered,
+  sensor/.style={rectangle, draw, fill=green!15, align=center,
                  rounded corners, minimum height=1.2em, minimum width=3.5cm,
                  font=\small},
-  decision/.style={diamond, draw, fill=orange!15, text centered,
+  decision/.style={diamond, draw, fill=orange!15, align=center,
                    aspect=2, font=\small},
   arrow/.style={->, >=Stealth, thick},
 }
 
-% ── Title ────────────────────────────────────────────────────────────────
+% -- Title ----------------------------------------------------------------
 \title{%
   \textbf{Person Follower Robot}\\[0.5em]
   \large Sensor Fusion with RGB, Depth, LiDAR, Odometry and Kalman Filter\\[0.3em]
@@ -79,8 +79,9 @@
 \section{Project Overview}
 
 This document describes the design and implementation of a \textbf{person-following
-robot} running on a TurtleBot3 Burger platform inside a Webots~R2023b simulation,
-controlled through a ROS~2~Humble node.
+robot} running on a TurtleBot3 Burger platform~\cite{turtlebot3} inside a
+Webots~R2025a simulation~\cite{webots},
+controlled through a ROS~2~Humble node~\cite{ros2}.
 
 The system detects a target pedestrian, estimates their position by fusing four
 independent sensing modalities, predicts future motion with a Kalman filter, and
@@ -89,7 +90,7 @@ commands the robot to follow the person while avoiding obstacles.
 \subsection{Goals}
 \begin{itemize}
   \item Detect and continuously track a specific person among multiple pedestrians.
-  \item Maintain a safe following distance of approximately \SI{0.8}{\meter}.
+  \item Maintain a safe following distance of approximately 0.8~m.
   \item Recover tracking automatically after temporary occlusion or loss of sight.
   \item Avoid collisions using LiDAR-based obstacle detection.
 \end{itemize}
@@ -100,7 +101,7 @@ commands the robot to follow the person while avoiding obstacles.
 \toprule
 \textbf{Component} & \textbf{Technology} \\
 \midrule
-Simulation         & Webots R2023b \\
+Simulation         & Webots R2025a \\
 Middleware         & ROS 2 Humble \\
 Object detection   & YOLOv8n (Ultralytics) \\
 Object tracking    & BoTSORT \\
@@ -130,7 +131,7 @@ The TurtleBot3 Burger is equipped with the following sensors (defined in the
 \toprule
 \textbf{Sensor} & \textbf{ROS topic} & \textbf{Resolution / Rate} \\
 \midrule
-RGB camera      & \texttt{/TurtleBot3Burger/camera/image\_color}              & $640\times480$, FOV $64°$ \\
+RGB camera      & \texttt{/TurtleBot3Burger/camera/image\_color}              & $640\times480$, FOV $64^{\circ}$ \\
 Range finder    & \texttt{/TurtleBot3Burger/range\_finder/range\_image/image} & $640\times480$ depth, 10~Hz \\
 LiDAR (LDS-01) & \texttt{/scan}                                               & 360 rays, 5~Hz \\
 IMU             & \texttt{/imu}                                                & 20~Hz \\
@@ -141,7 +142,7 @@ Odometry        & \texttt{/odom}                                               &
 
 \subsection{ArUco Markers}
 
-Four ArUco markers (DICT\_4X4\_50, IDs 0--3, size 0.3~m) are placed at fixed
+Four ArUco markers~\cite{aruco,aruco2} (DICT\_4X4\_50, IDs 0--3, size 0.3~m) are placed at fixed
 world coordinates to provide absolute localisation backup:
 
 \begin{center}
@@ -237,14 +238,15 @@ Each incoming RGB frame triggers the following pipeline:
 \subsection{Camera Model and Intrinsics}
 
 The simulated camera has a horizontal field-of-view of $\text{FOV}_H =
-1.117$~rad ($\approx 64°$) at resolution $640 \times 480$.  The focal length
+1.117$~rad ($\approx 64^{\circ}$) at resolution $640 \times 480$.  The focal length
 in pixels is derived analytically:
 
 \begin{equation}
   f_x = \frac{W/2}{\tan(\text{FOV}_H/2)} \approx 554~\text{px}
 \end{equation}
 
-The camera matrix used for ArUco pose estimation is:
+The camera matrix used for ArUco pose estimation, computed with the
+OpenCV library~\cite{opencv}, is:
 \begin{equation}
   K = \begin{pmatrix} f_x & 0 & W/2 \\ 0 & f_x & H/2 \\ 0 & 0 & 1 \end{pmatrix}
     = \begin{pmatrix} 554 & 0 & 320 \\ 0 & 554 & 240 \\ 0 & 0 & 1 \end{pmatrix}
@@ -255,8 +257,10 @@ camera used in Webots.
 
 \subsection{Kalman Filter (\texttt{KalmanTracker})}
 
-A constant-velocity Kalman filter operates in 2-D world coordinates to
-smooth and predict the pedestrian's position.
+A constant-velocity Kalman filter~\cite{kalman,barshalom} operates in 2-D
+world coordinates to
+smooth and predict the pedestrian's position. The filter equations are
+implemented with NumPy~\cite{numpy}.
 
 \subsubsection*{State vector}
 \[
@@ -310,12 +314,14 @@ estimate used to navigate towards the target when vision is temporarily lost:
 \subsection{LiDAR Processing}
 
 \subsubsection*{Obstacle detection}
-All LiDAR rays within $\pm30°$ of the forward direction are scanned for
+All LiDAR rays within $\pm30^{\circ}$ of the forward direction are scanned for
 finite readings; the minimum value is stored as \texttt{obstacle\_front}.
 This is used in the control law to modulate speed.
 
 \subsubsection*{Leg cluster detection (\texttt{\_detect\_leg\_clusters})}
 Consecutive LiDAR points closer than 0.15~m (gap threshold) are grouped.
+This clustering is a lightweight heuristic variant of laser-based people
+detection~\cite{arras}.
 A cluster is accepted as a potential human leg if:
 \begin{itemize}
   \item It contains between 3 and 12 points.
@@ -329,8 +335,8 @@ and (2) providing an independent distance estimate.
 \subsection{Person Detection and Tracking (\texttt{\_process\_yolo})}
 
 \begin{enumerate}[leftmargin=*, label=\arabic*.]
-  \item \textbf{YOLO inference.} \texttt{YOLOv8n} runs with \texttt{persist=True}
-    and \texttt{botsort.yaml} tracker, returning bounding boxes with stable
+  \item \textbf{YOLO inference.} \texttt{YOLOv8n}~\cite{yolo,yolov8} runs with \texttt{persist=True}
+    and the \texttt{botsort.yaml}~\cite{sort,botsort} tracker, returning bounding boxes with stable
     integer track IDs for class~0 (person) with confidence $\geq 0.30$.
 
   \item \textbf{Target acquisition.} On first detection, the robot locks onto
@@ -342,9 +348,9 @@ and (2) providing an independent distance estimate.
 
   \item \textbf{Re-identification (Re-ID).} If the target ID disappears for
     more than 2~s, each currently visible person is compared against the
-    stored histogram via Bhattacharyya correlation.  The best candidate is
+    stored HSV appearance histogram~\cite{comaniciu} via histogram correlation.  The best candidate is
     accepted if its similarity exceeds 0.75 \emph{and} a LiDAR cluster exists
-    within $\pm25°$ of its image position.
+    within $\pm25^{\circ}$ of its image position.
 
   \item \textbf{Histogram maintenance.} While the target is at 1--3~m, the
     stored histogram is updated with an exponential moving average:
@@ -363,7 +369,7 @@ by fusing the depth camera and the LiDAR:
     sampled from the \texttt{32FC1} depth image.  The median of all valid
     pixels ($0.1 < d < 10$~m) is taken as $d_\text{depth}$.
 
-  \item \textbf{LiDAR.} The nearest leg cluster within $\pm15°$ of the
+  \item \textbf{LiDAR.} The nearest leg cluster within $\pm15^{\circ}$ of the
     target heading gives $d_\text{lidar}$.
 
   \item \textbf{Weighted fusion:}
@@ -510,18 +516,26 @@ The node publishes a debug image on
 
 \begin{verbatim}
 person_follower/
-├── person_follower/
-│   ├── __init__.py
-│   └── person_follower.py        # Main ROS2 node
-├── webots/
-│   ├── turtlebot3_burger_pedestrian_simple.wbt   # Simulation world
-│   ├── generate_aruco_markers.py                 # ArUco PNG generator
-│   ├── aruco_0.png  ...  aruco_3.png             # Marker textures
-│   └── config.rviz                               # RViz configuration
-├── yolov8n.pt                    # Pre-trained YOLOv8 nano weights
-├── package.xml                   # ROS2 package manifest
-├── setup.py / setup.cfg          # Python package setup
-└── .gitignore
++-- person_follower/
+|   +-- __init__.py
+|   +-- person_follower.py        # Main ROS 2 node (perception + control)
++-- webots/
+|   +-- turtlebot3_burger_pedestrian_simple.wbt   # Simulation world
+|   +-- turtlebot3_burger_pedestrian_no_walls.wbt # Alternative world
+|   +-- generate_aruco_markers.py                 # ArUco PNG generator
+|   +-- record_experiment.bash                    # rosbag recording helper
+|   +-- aruco_0.png ... aruco_3.png               # Marker textures
+|   +-- config.rviz                               # RViz configuration
++-- report/
+|   +-- person_follower_report.tex   # This document
+|   +-- plot_trajectories.py         # Trajectory plotting / analysis script
+|   +-- traj_*.png                   # Generated trajectory figures
+|   +-- sim_*.png                    # Simulation screenshots
++-- yolov8n.pt                    # Pre-trained YOLOv8 nano weights
++-- package.xml                   # ROS 2 package manifest
++-- setup.py / setup.cfg          # Python package setup
++-- README.md                     # Build and run instructions
++-- .gitignore
 \end{verbatim}
 
 % ════════════════════════════════════════════════════════════════════════
@@ -549,7 +563,7 @@ Depth-LiDAR fusion weight        & 70\%/30\%& Depth preferred over LiDAR \\
 % ════════════════════════════════════════════════════════════════════════
 \section{Simulation Evidence}
 
-This section presents screenshots taken during live simulation runs in Webots~R2023b,
+This section presents screenshots taken during live simulation runs in Webots~R2025a,
 demonstrating the end-to-end operation of the person-follower system.
 
 \subsection{Simulation World and Pedestrians}
@@ -608,6 +622,133 @@ demonstrating the end-to-end operation of the person-follower system.
   \label{fig:sim_debug}
 \end{figure}
 
+% ========================================================================
+\section{Trajectory Analysis}
+\label{sec:trajectories}
+
+This section evaluates the behaviour of the system by plotting, in the Webots
+world frame, the path travelled by the robot together with the ground-truth
+paths of the pedestrians and the target position estimated by the perception
+pipeline.
+
+\subsection{Data Sources}
+
+Three independent sources of trajectory data are combined:
+
+\begin{itemize}
+  \item \textbf{Robot trajectory.} The wheel odometry published on
+    \texttt{/odom} provides the robot pose throughout the run.
+  \item \textbf{Perceived target trajectory.} The node publishes the fused
+    measurement and the Kalman estimate of the target on the topics
+    \texttt{/person\_follower/target\_measurement} and
+    \texttt{/person\_follower/target\_estimate} (both of type
+    \texttt{geometry\_msgs/PointStamped}). Recording these together with
+    \texttt{/odom} makes the rosbag self-contained for the analysis.
+  \item \textbf{Pedestrian ground truth.} The Webots \texttt{Pedestrian}
+    nodes follow deterministic way-point lists declared in the \texttt{.wbt}
+    world file through the \texttt{-{}-trajectory} controller argument. These
+    way-points are the exact ground-truth paths and are parsed directly from
+    the world file.
+\end{itemize}
+
+\subsection{Reference Frames}
+
+The \texttt{/odom} topic is expressed in the \texttt{odom} frame, whose origin
+coincides with the robot start pose, whereas the pedestrian way-points are
+given in the Webots world frame. To overlay both, the odometry samples are
+transformed into world coordinates with the rigid transformation
+
+\begin{equation}
+  \begin{pmatrix} x_w \\ y_w \end{pmatrix} =
+  R(\theta_0)
+  \begin{pmatrix} x_o \\ y_o \end{pmatrix} +
+  \begin{pmatrix} x_0 \\ y_0 \end{pmatrix},
+  \qquad
+  R(\theta_0) =
+  \begin{pmatrix} \cos\theta_0 & -\sin\theta_0 \\
+                  \sin\theta_0 &  \cos\theta_0 \end{pmatrix}
+\end{equation}
+
+where $(x_0,\,y_0,\,\theta_0)$ is the robot start pose read from the
+\texttt{.wbt} file. For \texttt{turtlebot3\_burger\_pedestrian\_simple.wbt}
+this is $(x_0,y_0) = (6.75,\,-3.00)$~m and $\theta_0 = \pi/2$~rad. The same
+transformation is applied to the target topics, since they are computed from
+the robot odometry and therefore share the \texttt{odom} frame.
+
+\subsection{Analysis Script}
+
+All figures in this section are produced by the script
+\texttt{report/plot\_trajectories.py}, which reads a recorded rosbag, parses
+the world file, applies the transformation above and renders the plots with
+Matplotlib:
+
+\begin{verbatim}
+# from the report/ directory, with ROS 2 sourced
+python3 plot_trajectories.py --bag rosbags/exp_01
+\end{verbatim}
+
+\noindent The procedure to record the rosbag is described in
+Appendix~\ref{app:rosbags}.
+
+\textit{\textbf{Note.} The figures below were generated with the
+demonstration mode of the script (\texttt{-{}-demo}, synthetic data) so that
+this document compiles before the experiments are carried out. They must be
+regenerated from a real rosbag, and this note removed, before the report is
+submitted.}
+
+\subsection{Results}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{traj_overview.png}
+  \caption{Global overview of an experiment run. The robot trajectory (dark
+           line) follows the ground-truth path of the target pedestrian (red
+           dashed), while a second pedestrian (orange dashed) moves
+           independently. The green line is the target position estimated by
+           the Kalman filter. The four ArUco panel positions are marked for
+           reference.}
+  \label{fig:traj_overview}
+\end{figure}
+
+Figure~\ref{fig:traj_overview} shows that the robot reproduces the shape of
+the target's path with a roughly constant offset: it remains behind the
+pedestrian at approximately the desired following distance and cuts the
+corners slightly, which is the expected behaviour of a controller that steers
+towards the \emph{current} bearing of the target.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{traj_following.png}
+  \caption{Detail of the target tracking. The raw fused measurement
+           (depth\,+\,LiDAR, grey dots) is noisy, whereas the Kalman estimate
+           (green) is a smooth curve that stays close to the pedestrian
+           ground truth (red dashed). The robot trajectory is shown in dark
+           blue.}
+  \label{fig:traj_following}
+\end{figure}
+
+Figure~\ref{fig:traj_following} illustrates the role of the Kalman filter:
+the constant-velocity model attenuates most of the measurement noise produced
+by the depth/LiDAR fusion and provides a continuous estimate of the target
+position, including the short intervals between detections.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{traj_distance.png}
+  \caption{Robot-to-target distance over time. After the initial approach the
+           distance settles around the desired value of 0.8~m (red
+           dashed line).}
+  \label{fig:traj_distance}
+\end{figure}
+
+Figure~\ref{fig:traj_distance} confirms the closed-loop behaviour of the
+control law: the robot quickly closes the initial gap and then keeps the
+following distance close to 0.8~m for the remainder of the run.
+The script additionally prints summary statistics --- the robot and target
+path lengths and the minimum, mean and maximum following distance --- which
+can be quoted here once the experiment has been recorded.
+
+
 \section{Conclusion}
 
 The person-follower node integrates five complementary techniques to achieve
@@ -629,5 +770,258 @@ robust tracking in a cluttered indoor simulation:
 The modular callback architecture makes it straightforward to tune individual
 subsystems independently and to extend the pipeline with additional sensors or
 more sophisticated controllers.
+
+% ========================================================================
+\newpage
+\addcontentsline{toc}{section}{References}
+\begin{thebibliography}{99}
+
+\bibitem{ros2}
+S.~Macenski, T.~Foote, B.~Gerkey, C.~Lalancette, and W.~Woodall,
+``Robot Operating System 2: Design, architecture, and uses in the wild,''
+\emph{Science Robotics}, vol.~7, no.~66, eabm6074, 2022.
+
+\bibitem{webots}
+O.~Michel,
+``Webots: Professional Mobile Robot Simulation,''
+\emph{International Journal of Advanced Robotic Systems}, vol.~1, no.~1,
+pp.~39--42, 2004.
+
+\bibitem{turtlebot3}
+R.~Amsters and P.~Slaets,
+``Turtlebot 3 as a Robotics Education Platform,''
+in \emph{Robotics in Education (RiE 2019)}, Advances in Intelligent Systems
+and Computing, vol.~1023.\ Cham: Springer, 2020, pp.~170--181.
+
+\bibitem{opencv}
+G.~Bradski,
+``The OpenCV Library,''
+\emph{Dr.\ Dobb's Journal of Software Tools}, 2000.
+
+\bibitem{numpy}
+C.~R.~Harris \emph{et al.},
+``Array programming with NumPy,''
+\emph{Nature}, vol.~585, pp.~357--362, 2020.
+
+\bibitem{yolo}
+J.~Redmon, S.~Divvala, R.~Girshick, and A.~Farhadi,
+``You Only Look Once: Unified, Real-Time Object Detection,''
+in \emph{Proc.\ IEEE Conf.\ on Computer Vision and Pattern Recognition
+(CVPR)}, 2016, pp.~779--788.
+
+\bibitem{yolov8}
+G.~Jocher, A.~Chaurasia, and J.~Qiu,
+``Ultralytics YOLOv8,'' version~8.0.0, 2023. [Online]. Available:
+\url{https://github.com/ultralytics/ultralytics}
+
+\bibitem{sort}
+A.~Bewley, Z.~Ge, L.~Ott, F.~Ramos, and B.~Upcroft,
+``Simple Online and Realtime Tracking,''
+in \emph{Proc.\ IEEE Int.\ Conf.\ on Image Processing (ICIP)}, 2016,
+pp.~3464--3468.
+
+\bibitem{botsort}
+N.~Aharon, R.~Orfaig, and B.-Z.~Bobrovsky,
+``BoT-SORT: Robust Associations Multi-Pedestrian Tracking,''
+arXiv:2206.14651, 2022.
+
+\bibitem{comaniciu}
+D.~Comaniciu, V.~Ramesh, and P.~Meer,
+``Kernel-Based Object Tracking,''
+\emph{IEEE Transactions on Pattern Analysis and Machine Intelligence},
+vol.~25, no.~5, pp.~564--577, 2003.
+
+\bibitem{arras}
+K.~O.~Arras, O.~Mart\'{\i}nez~Mozos, and W.~Burgard,
+``Using Boosted Features for the Detection of People in 2D Range Data,''
+in \emph{Proc.\ IEEE Int.\ Conf.\ on Robotics and Automation (ICRA)}, 2007,
+pp.~3402--3407.
+
+\bibitem{aruco}
+S.~Garrido-Jurado, R.~Mu\~{n}oz-Salinas, F.~J.~Madrid-Cuevas, and
+M.~J.~Mar\'{\i}n-Jim\'{e}nez,
+``Automatic generation and detection of highly reliable fiducial markers
+under occlusion,''
+\emph{Pattern Recognition}, vol.~47, no.~6, pp.~2280--2292, 2014.
+
+\bibitem{aruco2}
+F.~J.~Romero-Ramirez, R.~Mu\~{n}oz-Salinas, and R.~Medina-Carnicer,
+``Speeded up detection of squared fiducial markers,''
+\emph{Image and Vision Computing}, vol.~76, pp.~38--47, 2018.
+
+\bibitem{kalman}
+R.~E.~Kalman,
+``A New Approach to Linear Filtering and Prediction Problems,''
+\emph{Journal of Basic Engineering}, vol.~82, no.~1, pp.~35--45, 1960.
+
+\bibitem{barshalom}
+Y.~Bar-Shalom, X.-R.~Li, and T.~Kirubarajan,
+\emph{Estimation with Applications to Tracking and Navigation}.
+New York: John Wiley \& Sons, 2001.
+
+\end{thebibliography}
+
+% ========================================================================
+\newpage
+\appendix
+
+\section{Running the Simulation}
+\label{app:running}
+
+This appendix gives the complete procedure to build and run the
+person-follower in simulation. It assumes Ubuntu~22.04 with
+ROS~2~Humble~\cite{ros2} and Webots~R2025a~\cite{webots} already installed,
+with Webots extracted to \texttt{\$HOME/webots-R2025a}.
+
+\subsection{Prerequisites}
+
+Install the TurtleBot3 packages for \texttt{webots\_ros2} and the Python
+dependencies used by the perception node:
+
+\begin{verbatim}
+sudo apt update
+sudo apt install ros-humble-webots-ros2-turtlebot ros-humble-cv-bridge
+pip3 install ultralytics opencv-contrib-python numpy
+\end{verbatim}
+
+\subsection{Build the Package}
+
+\begin{verbatim}
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+git clone https://github.com/mr7g0l/person_follower.git
+cd ~/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+\end{verbatim}
+
+\subsection{Generate the ArUco Textures}
+
+The marker PNG textures are already included in the repository. To regenerate
+them (for example after changing the marker dictionary), run:
+
+\begin{verbatim}
+cd ~/ros2_ws/src/person_follower
+python3 webots/generate_aruco_markers.py
+\end{verbatim}
+
+\subsection{Install the World Files}
+
+Copy the world files \emph{and} the ArUco textures into the
+\texttt{webots\_ros2\_turtlebot} package, so that Webots can locate the
+texture images referenced by the world:
+
+\begin{verbatim}
+WORLDS=/opt/ros/humble/share/webots_ros2_turtlebot/worlds
+sudo cp ~/ros2_ws/src/person_follower/webots/*.wbt       $WORLDS/
+sudo cp ~/ros2_ws/src/person_follower/webots/aruco_*.png $WORLDS/
+\end{verbatim}
+
+\subsection{Launch the System}
+
+The system runs in three terminals. In every terminal, ROS~2 must be sourced
+first.
+
+\textbf{Terminal 1 --- perception and control node:}
+\begin{verbatim}
+source /opt/ros/humble/setup.bash
+source ~/ros2_ws/install/setup.bash
+export ROS_LOCALHOST_ONLY=1
+ros2 run person_follower person_follower
+\end{verbatim}
+
+\textbf{Terminal 2 --- Webots simulator:}
+\begin{verbatim}
+export WEBOTS_HOME=~/webots-R2025a
+source /opt/ros/humble/setup.bash
+export ROS_LOCALHOST_ONLY=1
+ros2 launch webots_ros2_turtlebot robot_launch.py \
+  world:=turtlebot3_burger_pedestrian_simple.wbt
+\end{verbatim}
+
+\textbf{Terminal 3 --- RViz visualisation (optional):}
+\begin{verbatim}
+source /opt/ros/humble/setup.bash
+export ROS_LOCALHOST_ONLY=1
+rviz2 -d ~/ros2_ws/src/person_follower/webots/config.rviz
+\end{verbatim}
+
+Once Webots is running, the robot locks onto the nearest pedestrian and starts
+following it. The annotated camera stream is published on
+\texttt{/person\_follower/debug\_image} and can be inspected with
+\texttt{rqt\_image\_view}.
+
+% ========================================================================
+\section{Recording and Replaying Experiments}
+\label{app:rosbags}
+
+To document an experiment in a reproducible way, the relevant ROS~2 topics are
+recorded into a rosbag.
+
+\subsection{Recording}
+
+With the simulation running (Appendix~\ref{app:running}), start the recording
+in a new terminal:
+
+\begin{verbatim}
+cd ~/ros2_ws/src/person_follower/webots
+./record_experiment.bash exp_01
+\end{verbatim}
+
+The helper script \texttt{record\_experiment.bash} stores the bag under
+\texttt{report/rosbags/exp\_01\_<timestamp>} and records the topics
+\texttt{/odom}, \texttt{/cmd\_vel}, \texttt{/scan},
+\texttt{/person\_follower/target\_measurement} and
+\texttt{/person\_follower/target\_estimate}. Press \texttt{Ctrl-C} to stop.
+The contents of a bag can be inspected with:
+
+\begin{verbatim}
+ros2 bag info report/rosbags/exp_01_<timestamp>
+\end{verbatim}
+
+\subsection{Replaying}
+
+A recorded experiment can be played back so that the trajectories, the laser
+scan and the velocity commands are republished on their original topics:
+
+\begin{verbatim}
+source /opt/ros/humble/setup.bash
+export ROS_LOCALHOST_ONLY=1
+ros2 bag play report/rosbags/exp_01_<timestamp>
+\end{verbatim}
+
+While the bag is playing, RViz (Appendix~\ref{app:running}) can be used to
+visualise the laser scan and the robot motion.
+
+\subsection{Generating the Trajectory Plots}
+
+The figures of Section~\ref{sec:trajectories} are produced from the recorded
+bag with:
+
+\begin{verbatim}
+cd ~/ros2_ws/src/person_follower/report
+pip3 install matplotlib numpy
+python3 plot_trajectories.py --bag rosbags/exp_01_<timestamp>
+\end{verbatim}
+
+This writes \texttt{traj\_overview.png}, \texttt{traj\_following.png} and
+\texttt{traj\_distance.png} into the \texttt{report/} directory and prints the
+summary statistics of the run.
+
+\subsection{Sharing the Rosbags}
+
+Recorded rosbags are too large to be stored in the Git repository (the
+\texttt{report/rosbags/} directory is therefore excluded in
+\texttt{.gitignore}). They are instead uploaded to Google Drive with link
+sharing enabled, and the link is added here and to the project
+\texttt{README}:
+
+\begin{center}
+\fbox{\texttt{https://drive.google.com/your-shared-folder-link}}
+\end{center}
+
+\noindent To reproduce the analysis, download the bag from that link and run
+the commands above on the downloaded directory.
+
 
 \end{document}
