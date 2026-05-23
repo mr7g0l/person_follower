@@ -5,7 +5,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[english]{babel}
 \usepackage{geometry}
-\geometry{margin=2.5cm}
+\geometry{margin=2.5cm, headheight=15pt}
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -21,6 +21,25 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{parskip}
+\usepackage{fancyhdr}
+
+% Course code in the header of every page
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{SJK009 --- Collaborative Robots}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Float placement: pack figures tightly, avoid near-empty pages
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.08}
+\renewcommand{\floatpagefraction}{0.75}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{4}
+
+% Last-resort stretch so long monospace paths/topics break instead of overflowing
+\setlength{\emergencystretch}{3.5em}
 
 % -- Code style ----------------------------------------------------------
 \definecolor{codebg}{RGB}{248,248,248}
@@ -67,11 +86,38 @@
   \normalsize Technical Documentation --- ROS 2 / Webots Simulation
 }
 \author{Universitat Jaume I}
-\date{April 2026}
+\date{May 2026}
 
 % ════════════════════════════════════════════════════════════════════════
 \begin{document}
-\maketitle
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+
+\includegraphics[width=0.55\textwidth]{uji_logo.png}
+
+\vspace{1.4cm}
+{\large\scshape SJK009 --- Collaborative Robots\par}
+
+\vspace{2.6cm}
+{\Huge\bfseries Person Follower Robot\par}
+\vspace{0.5cm}
+{\large Sensor Fusion with RGB, Depth, LiDAR, Odometry and Kalman Filter\par}
+\vspace{0.25cm}
+{\normalsize Technical Documentation --- ROS 2 / Webots Simulation\par}
+
+\vspace{2.6cm}
+{\large
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{rl}
+\textbf{Author:} & Miguel Rebolledo \\
+\textbf{Professors:} & Enric Cervera Mateu \\
+ & Ángel Juan Durán Bosch \\
+\end{tabular}\par}
+
+\vfill
+{\large Final Document --- May 2026\par}
+\end{titlepage}
 \tableofcontents
 \newpage
 
@@ -117,7 +163,7 @@ Language           & Python 3 \\
 % ════════════════════════════════════════════════════════════════════════
 \section{Simulation Environment}
 
-The world file \texttt{turtlebot3\_burger\_pedestrian\_simple.wbt} defines an
+The world file \texttt{turtlebot3\_\allowbreak burger\_\allowbreak pedestrian\_\allowbreak simple.wbt} defines an
 indoor office-like environment ($5 \times 10$~m floor) with walls, a door, and
 four ArUco marker panels mounted at known world positions.
 
@@ -127,6 +173,7 @@ The TurtleBot3 Burger is equipped with the following sensors (defined in the
 \texttt{.wbt} world and exposed through the URDF plugin):
 
 \begin{center}
+\resizebox{\linewidth}{!}{%
 \begin{tabular}{lll}
 \toprule
 \textbf{Sensor} & \textbf{ROS topic} & \textbf{Resolution / Rate} \\
@@ -138,6 +185,7 @@ IMU             & \texttt{/imu}                                                &
 Odometry        & \texttt{/odom}                                               & continuous \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \subsection{ArUco Markers}
@@ -171,8 +219,9 @@ The entire behaviour is implemented in a single ROS~2 node
 (\texttt{PersonFollower}), which subscribes to sensor data and publishes
 velocity commands at 10~Hz.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
+\resizebox{\ifdim\width>\linewidth \linewidth\else \width\fi}{!}{%
 \begin{tikzpicture}[node distance=0.8cm and 2.2cm]
   % Sensor nodes
   \node[sensor] (rgb)   {RGB camera};
@@ -199,7 +248,8 @@ velocity commands at 10~Hz.
   % Arrows out
   \draw[arrow] (pf) -- (cmd);
   \draw[arrow] (pf) -- (dbg);
-\end{tikzpicture}
+\end{tikzpicture}%
+}
 \caption{High-level ROS~2 node graph.}
 \end{figure}
 
@@ -207,8 +257,9 @@ velocity commands at 10~Hz.
 
 Each incoming RGB frame triggers the following pipeline:
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
+\resizebox{\ifdim\width>\linewidth \linewidth\else \width\fi}{!}{%
 \begin{tikzpicture}[node distance=0.5cm and 0cm, every node/.style={font=\small}]
   \node[block] (in)    {RGB frame};
   \node[block, below=of in]  (aruco) {ArUco detection\\(pose backup)};
@@ -228,7 +279,8 @@ Each incoming RGB frame triggers the following pipeline:
   \draw[arrow] (reid)  |- (fuse);
   \draw[arrow] (fuse)  -- (kal);
   \draw[arrow] (kal)   -- (hist);
-\end{tikzpicture}
+\end{tikzpicture}%
+}
 \caption{RGB processing pipeline executed on each camera frame.}
 \end{figure}
 
@@ -456,8 +508,9 @@ a slow rotation to search (Mode~3) and resets the tracker state.
 The robot spins in the last observed angular direction at 0.3~rad/s until a
 person is detected again.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
+\resizebox{\ifdim\width>\linewidth \linewidth\else \width\fi}{!}{%
 \begin{tikzpicture}[node distance=0.7cm and 1.5cm]
   \node[decision] (vis) {Person\\visible?};
   \node[decision, right=3cm of vis] (dist) {Distance\\known?};
@@ -473,7 +526,8 @@ person is detected again.
   \draw[arrow] (dist) -- node[right]{no}  (m1b);
   \draw[arrow] (kal)  -- node[above]{yes} (m2);
   \draw[arrow] (kal)  -- node[left]{no}   (m3);
-\end{tikzpicture}
+\end{tikzpicture}%
+}
 \caption{Control mode selection logic.}
 \end{figure}
 
@@ -501,7 +555,7 @@ drift (currently logged at DEBUG level).
 \section{Debug Visualisation}
 
 The node publishes a debug image on
-\texttt{/person\_follower/debug\_image} combining:
+\texttt{/person\_\allowbreak follower/\allowbreak debug\_image} combining:
 \begin{itemize}
   \item Bounding boxes for all detected persons (green for the target,
     red for others) with track IDs.
@@ -514,6 +568,7 @@ The node publishes a debug image on
 % ════════════════════════════════════════════════════════════════════════
 \section{File Structure}
 
+{\small
 \begin{verbatim}
 person_follower/
 +-- person_follower/
@@ -537,6 +592,7 @@ person_follower/
 +-- README.md                     # Build and run instructions
 +-- .gitignore
 \end{verbatim}
+}
 
 % ════════════════════════════════════════════════════════════════════════
 \section{Parameter Summary}
@@ -568,9 +624,9 @@ demonstrating the end-to-end operation of the person-follower system.
 
 \subsection{Simulation World and Pedestrians}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{sim_01_world.png}
+  \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{sim_01_world.png}
   \caption{Webots simulation world with multiple pedestrians. The top-right inset
            shows the robot's onboard RGB camera stream. Several animated pedestrians
            move through the indoor environment while the TurtleBot3 Burger (visible
@@ -580,9 +636,9 @@ demonstrating the end-to-end operation of the person-follower system.
 
 \subsection{Active Tracking with Kalman Filter}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{sim_02_following.png}
+  \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{sim_02_following.png}
   \caption{Robot actively following the locked target. The terminal on the right
            shows ROS~2 log output from the \texttt{person\_follower} node:
            \texttt{[SIGUIENDO ID=94]} entries confirm that the YOLO+BoTSORT
@@ -595,9 +651,9 @@ demonstrating the end-to-end operation of the person-follower system.
 
 \subsection{Active ROS 2 Topics}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{sim_03_topics.png}
+  \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{sim_03_topics.png}
   \caption{ROS~2 topic listing during a live run. All expected sensor streams
            are present: \texttt{/scan} (LiDAR), \texttt{/TurtleBot3Burger/camera/image\_color}
            (RGB), \texttt{/TurtleBot3Burger/range\_finder/range\_image/image} (depth),
@@ -608,12 +664,12 @@ demonstrating the end-to-end operation of the person-follower system.
 
 \subsection{Debug Image and Depth View}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{sim_04_debug.png}
+  \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{sim_04_debug.png}
   \caption{Debug visualisation during tracking. The top-left panel shows the
            RGB debug image published on
-           \texttt{/person\_follower/debug\_image}: a magenta bounding box
+           \texttt{/person\_\allowbreak follower/\allowbreak debug\_image}: a magenta bounding box
            surrounds the tracked person, confirming identity lock. The
            bottom-left panel shows the corresponding \texttt{32FC1} depth
            image from the range finder, where the pedestrian silhouette is
@@ -640,9 +696,9 @@ Three independent sources of trajectory data are combined:
     \texttt{/odom} provides the robot pose throughout the run.
   \item \textbf{Perceived target trajectory.} The node publishes the fused
     measurement and the Kalman estimate of the target on the topics
-    \texttt{/person\_follower/target\_measurement} and
-    \texttt{/person\_follower/target\_estimate} (both of type
-    \texttt{geometry\_msgs/PointStamped}). Recording these together with
+    \texttt{/person\_\allowbreak follower/\allowbreak target\_\allowbreak measurement} and
+    \texttt{/person\_\allowbreak follower/\allowbreak target\_\allowbreak estimate} (both of type
+    \texttt{geometry\_\allowbreak msgs/\allowbreak PointStamped}). Recording these together with
     \texttt{/odom} makes the rosbag self-contained for the analysis.
   \item \textbf{Pedestrian ground truth.} The Webots \texttt{Pedestrian}
     nodes follow deterministic way-point lists declared in the \texttt{.wbt}
@@ -670,7 +726,7 @@ transformed into world coordinates with the rigid transformation
 \end{equation}
 
 where $(x_0,\,y_0,\,\theta_0)$ is the robot start pose read from the
-\texttt{.wbt} file. For \texttt{turtlebot3\_burger\_pedestrian\_simple.wbt}
+\texttt{.wbt} file. For \texttt{turtlebot3\_\allowbreak burger\_\allowbreak pedestrian\_\allowbreak simple.wbt}
 this is $(x_0,y_0) = (6.75,\,-3.00)$~m and $\theta_0 = \pi/2$~rad. The same
 transformation is applied to the target topics, since they are computed from
 the robot odometry and therefore share the \texttt{odom} frame.
@@ -699,9 +755,9 @@ mean interval between detections was 1.6~s and the longest single loss of the
 target lasted 76~s. This low detection rate is the dominant factor in the
 results below; its cause is analysed in Section~\ref{sec:limitations}.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{traj_overview.png}
+  \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{traj_overview.png}
   \caption{Global overview of the recorded experiment. The robot trajectory
            is shown in dark blue and the Kalman estimate of the target in
            green; the green line is broken wherever the target was lost. The
@@ -717,9 +773,9 @@ large fraction of the run in the search behaviour (Mode~3), turning in place
 to re-acquire the pedestrian. The Kalman estimate appears as a set of
 disconnected segments: each gap corresponds to an interval with no detection.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{traj_following.png}
+  \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{traj_following.png}
   \caption{Detail of the target tracking: the fused depth\,+\,LiDAR
            measurements (grey dots), the Kalman estimate (green, broken at
            detection losses) and the robot trajectory (dark blue), against the
@@ -733,9 +789,9 @@ pedestrian path: the perception pipeline is accurate. The limitation is not
 accuracy but \emph{update rate} --- the estimate is not refreshed often enough
 to keep the controller continuously informed.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{traj_distance.png}
+  \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{traj_distance.png}
   \caption{Robot-to-target distance, evaluated at each detection. The line is
            broken where the target was lost for more than 2~s. The desired
            following distance of 0.8~m is the red dashed line.}
@@ -979,7 +1035,7 @@ rviz2 -d ~/ros2_ws/src/person_follower/webots/config.rviz
 
 Once Webots is running, the robot locks onto the nearest pedestrian and starts
 following it. The annotated camera stream is published on
-\texttt{/person\_follower/debug\_image} and can be inspected with
+\texttt{/person\_\allowbreak follower/\allowbreak debug\_image} and can be inspected with
 \texttt{rqt\_image\_view}.
 
 % ========================================================================
@@ -1000,10 +1056,10 @@ cd ~/ros2_ws/src/person_follower/webots
 \end{verbatim}
 
 The helper script \texttt{record\_experiment.bash} stores the bag under
-\texttt{report/rosbags/exp\_01\_<timestamp>} and records the topics
+\texttt{report/\allowbreak rosbags/\allowbreak exp\_01\_\allowbreak<timestamp>} and records the topics
 \texttt{/odom}, \texttt{/cmd\_vel}, \texttt{/scan},
-\texttt{/person\_follower/target\_measurement} and
-\texttt{/person\_follower/target\_estimate}. Press \texttt{Ctrl-C} to stop.
+\texttt{/person\_\allowbreak follower/\allowbreak target\_\allowbreak measurement} and
+\texttt{/person\_\allowbreak follower/\allowbreak target\_\allowbreak estimate}. Press \texttt{Ctrl-C} to stop.
 The contents of a bag can be inspected with:
 
 \begin{verbatim}
